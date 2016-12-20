@@ -93,6 +93,7 @@ int main(int argc, const char **argv)
     if(filtered_log != NULL)
     {
         printf("%s\n", filtered_log);
+        free(filtered_log);
     }
     printf("Processing is finished\n");
     
@@ -168,6 +169,8 @@ char * log_search(const char *file_path, const char *mask, int max_lines, bool s
     char *out_buffer;
     write_to_buffer(&out_buffer, max_lines, separator, queue);
 
+    pthread_join(read_thread_id, NULL);
+    pthread_join(filter_thread_id, NULL);
     free_log_queue(queue);
 
     return out_buffer;
@@ -205,6 +208,7 @@ void read_from_file(const char *file_path, bool scan_tail, struct LogQueue *queu
         }
     }
 
+    fclose(file);
     queue->is_writing_finished = true;
 }
 
@@ -238,7 +242,9 @@ void filter(const char *mask, int max_lines, struct LogQueue * queue)
 
     // Compile regex pattern
     regex_t re;
-    if(regcomp(&re, re_pattern, REG_NOSUB) != 0)
+    int status = regcomp(&re, re_pattern, REG_NOSUB);
+    free(re_pattern);
+    if(status != 0)
     {
         printf("Failed to generate regular expression from mask\n");
         queue->is_failed = true;
